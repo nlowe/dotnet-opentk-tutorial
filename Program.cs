@@ -1,4 +1,5 @@
 ﻿using System;
+using dotnet_opentk_tutorial.Components;
 
 namespace dotnet_opentk_tutorial
 {

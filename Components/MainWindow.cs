@@ -1,13 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using OpenTK;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Graphics;
 using OpenTK.Input;
+using Vector4 = OpenTK.Vector4;
 
-namespace dotnet_opentk_tutorial
+namespace dotnet_opentk_tutorial.Components
 {
     public sealed class MainWindow : GameWindow
     {
@@ -15,8 +15,8 @@ namespace dotnet_opentk_tutorial
 
         private readonly string _titleBase;
         private int _program;
-        private int _vao;
         private double _elapsed;
+        private readonly List<RenderObject> _renderObjects = new List<RenderObject>();
 
         public MainWindow() : base(
             1280,
@@ -25,7 +25,7 @@ namespace dotnet_opentk_tutorial
             "OpenTK in .NET Core",
             GameWindowFlags.Default,
             DisplayDevice.Default,
-            4, 0, // Request OpenGL 4.0
+            4, 5, // Request OpenGL 4.5
             GraphicsContextFlags.ForwardCompatible
         )
         {
@@ -42,15 +42,26 @@ namespace dotnet_opentk_tutorial
             CursorVisible = true;
             _program = CompileShaders();
 
-            _vao = GL.GenVertexArray();
-            GL.BindVertexArray(_vao);
+            _renderObjects.Add(new RenderObject(new []
+            {
+                new Vertex(new Vector4(-0.25f, 0.25f, 0.5f, 1.0f), Color4.Red),
+                new Vertex(new Vector4(0.0f, -0.25f, 0.5f, 1.0f), Color4.Green),
+                new Vertex(new Vector4(0.25f, 0.25f, 0.5f, 1.0f), Color4.Blue), 
+            }));
+            
+            GL.PolygonMode(MaterialFace.Front, PolygonMode.Fill);
+            GL.PatchParameter(PatchParameterInt.PatchVertices, 3);
             
             Closed += (s, ce) => Exit();
         }
 
         public override void Exit()
         {
-            GL.DeleteVertexArray(_vao);
+            foreach (var obj in _renderObjects)
+            {
+                obj.Dispose();
+            }
+            
             GL.DeleteProgram(_program);
             base.Exit();
         }
@@ -69,19 +80,10 @@ namespace dotnet_opentk_tutorial
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
             GL.UseProgram(_program);
-            
-            var position = new Vector4(
-                (float) Math.Sin(_elapsed) * 0.5f,
-                (float) Math.Cos(_elapsed) * 0.5f,
-                0.0f,
-                1.0f
-            );
-            
-            GL.VertexAttrib1(0, _elapsed);
-            GL.VertexAttrib4(1, position);
-            
-            GL.DrawArrays(PrimitiveType.Points, 0, 1);
-            GL.PointSize(10);
+            foreach (var obj in _renderObjects)
+            {
+                obj.Render();
+            }
             
             SwapBuffers();
         }

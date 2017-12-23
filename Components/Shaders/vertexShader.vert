@@ -1,11 +1,12 @@
-#version 440 core
+#version 450 core
 
-layout (location = 0) in float time;
-layout (location = 1) in vec4 position;
+layout (location = 0) in vec4 position;
+layout (location = 1) in vec4 color;
+
 out vec4 frag_color;
 
 void main(void)
 {
     gl_Position = position;
-    frag_color = vec4(sin(time) * 0.5 + 0.5, cos(time) * 0.5 + 0.5, 0.0, 0.0);
+    frag_color = color;
 }
