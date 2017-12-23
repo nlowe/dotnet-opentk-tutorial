@@ -5,7 +5,6 @@ using OpenTK;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Graphics;
 using OpenTK.Input;
-using Vector4 = OpenTK.Vector4;
 
 namespace dotnet_opentk_tutorial.Components
 {
@@ -15,6 +14,7 @@ namespace dotnet_opentk_tutorial.Components
 
         private readonly string _titleBase;
         private int _program;
+        private Matrix4 _modelView;
         private double _elapsed;
         private readonly List<RenderObject> _renderObjects = new List<RenderObject>();
 
@@ -30,6 +30,7 @@ namespace dotnet_opentk_tutorial.Components
         )
         {
             _titleBase += $"{Title}: OpenGL Version: {GL.GetString(StringName.Version)}";
+            Title = _titleBase;
         }
 
         protected override void OnResize(EventArgs e)
@@ -42,16 +43,12 @@ namespace dotnet_opentk_tutorial.Components
             CursorVisible = true;
             _program = CompileShaders();
 
-            _renderObjects.Add(new RenderObject(new []
-            {
-                new Vertex(new Vector4(-0.25f, 0.25f, 0.5f, 1.0f), Color4.Red),
-                new Vertex(new Vector4(0.0f, -0.25f, 0.5f, 1.0f), Color4.Green),
-                new Vertex(new Vector4(0.25f, 0.25f, 0.5f, 1.0f), Color4.Blue), 
-            }));
+            _renderObjects.Add(new RenderObject(ObjectFactory.CreateSolidCube(0.2f, Color4.HotPink)));
             
-            GL.PolygonMode(MaterialFace.Front, PolygonMode.Fill);
+            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line);
             GL.PatchParameter(PatchParameterInt.PatchVertices, 3);
             
+            GL.Enable(EnableCap.DepthTest);
             Closed += (s, ce) => Exit();
         }
 
@@ -68,18 +65,35 @@ namespace dotnet_opentk_tutorial.Components
 
         protected override void OnUpdateFrame(FrameEventArgs e)
         {
+            _elapsed += e.Time;
+
+            var k = (float) _elapsed * 0.05f;
+            var rX = Matrix4.CreateRotationX(k * 13.0f);
+            var rY = Matrix4.CreateRotationY(k * 13.0f);
+            var rZ = Matrix4.CreateRotationZ(k * 3.0f);
+
+            var t = Matrix4.CreateTranslation(
+                (float) (Math.Sin(k * 5f) * 0.5f),
+                (float) (Math.Cos(k * 5f) * 0.5f),
+                0f
+            );
+            
+            _modelView = rX * rY * rZ * t;
+            
             HandleKeyboard();
         }
 
         protected override void OnRenderFrame(FrameEventArgs e)
         {
-            _elapsed += e.Time;
-            Title = $"{_titleBase} (VSync: {VSync}) FPS: {1f / e.Time:0}";
-
             GL.ClearColor(CLEAR_COLOR);
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
             GL.UseProgram(_program);
+            GL.UniformMatrix4(
+                20,            // layout location in shader
+                false,         // Transpose?
+                ref _modelView // matrix to send to shader
+            );
             foreach (var obj in _renderObjects)
             {
                 obj.Render();
