@@ -14,6 +14,7 @@ namespace dotnet_opentk_tutorial
         private readonly string _titleBase;
         private int _program;
         private int _vao;
+        private double _elapsed;
 
         public MainWindow() : base(
             1280,
@@ -59,12 +60,24 @@ namespace dotnet_opentk_tutorial
 
         protected override void OnRenderFrame(FrameEventArgs e)
         {
+            _elapsed += e.Time;
             Title = $"{_titleBase} (VSync: {VSync}) FPS: {1f / e.Time:0}";
 
             GL.ClearColor(CLEAR_COLOR);
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
             GL.UseProgram(_program);
+            
+            var position = new Vector4(
+                (float) Math.Sin(_elapsed) * 0.5f,
+                (float) Math.Cos(_elapsed) * 0.5f,
+                0.0f,
+                1.0f
+            );
+            
+            GL.VertexAttrib1(0, _elapsed);
+            GL.VertexAttrib4(1, position);
+            
             GL.DrawArrays(PrimitiveType.Points, 0, 1);
             GL.PointSize(10);
             
