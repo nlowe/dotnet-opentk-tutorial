@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using OpenTK;
 using OpenTK.Graphics.OpenGL4;
@@ -94,25 +96,50 @@ namespace dotnet_opentk_tutorial
             }
         }
 
+        private int CompileShader(ShaderType type, string path)
+        {
+            var shader = GL.CreateShader(type);
+            var src = File.ReadAllText(path);
+            
+            GL.ShaderSource(shader, src);
+            GL.CompileShader(shader);
+
+            var info = GL.GetShaderInfoLog(shader);
+            if (!string.IsNullOrEmpty(info))
+            {
+                Console.WriteLine($"GL.CompileShader [{type}] had info log: {info}");
+            }
+
+            return shader;
+        }
+
         private int CompileShaders()
         {
-            var vertexShader = GL.CreateShader(ShaderType.VertexShader);
-            GL.ShaderSource(vertexShader, File.ReadAllText("Components/Shaders/vertexShader.vert"));
-            GL.CompileShader(vertexShader);
-
-            var fragmentShader = GL.CreateShader(ShaderType.FragmentShader);
-            GL.ShaderSource(fragmentShader, File.ReadAllText("Components/Shaders/fragmentShader.frag"));
-            GL.CompileShader(fragmentShader);
-
             var program = GL.CreateProgram();
-            GL.AttachShader(program, vertexShader);
-            GL.AttachShader(program, fragmentShader);
-            GL.LinkProgram(program);
+
+            var shaders = new List<int>
+            {
+                CompileShader(ShaderType.VertexShader, "Components/Shaders/vertexShader.vert"),
+                CompileShader(ShaderType.FragmentShader, "Components/Shaders/fragmentShader.frag")
+            };
+
+            foreach (var s in shaders)
+            {
+                GL.AttachShader(program, s);
+            }
             
-            GL.DetachShader(program, vertexShader);
-            GL.DetachShader(program, fragmentShader);
-            GL.DeleteShader(vertexShader);
-            GL.DeleteShader(fragmentShader);
+            GL.LinkProgram(program);
+            var info = GL.GetProgramInfoLog(program);
+            if (!string.IsNullOrEmpty(info))
+            {
+                Console.WriteLine($"GL.LinkProgram had info log: {info}");
+            }
+            
+            foreach (var s in shaders)
+            {
+                GL.DetachShader(program, s);
+                GL.DeleteShader(s);
+            }
 
             return program;
         }
