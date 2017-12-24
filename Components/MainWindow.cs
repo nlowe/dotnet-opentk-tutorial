@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
+using dotnet_opentk_tutorial.Rendering;
 using OpenTK;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Graphics;
@@ -13,10 +13,12 @@ namespace dotnet_opentk_tutorial.Components
         private readonly Color4 CLEAR_COLOR = new Color4(0.1f, 0.1f, 0.3f, 1.0f);
 
         private readonly string _titleBase;
-        private int _program;
         private Matrix4 _projection;
         private double _elapsed;
-        private readonly List<RenderObject> _renderObjects = new List<RenderObject>();
+        private readonly List<IRenderable> _renderObjects = new List<IRenderable>();
+
+        private ShaderProgram _coloredSolidShader;
+        private ShaderProgram _texturedSolidShader;
 
         public MainWindow() : base(
             1280,
@@ -42,16 +44,27 @@ namespace dotnet_opentk_tutorial.Components
         protected override void OnLoad(EventArgs e)
         {
             CursorVisible = true;
-
+            VSync = VSyncMode.Off;
             CreateProjection();
 
-            _renderObjects.Add(new RenderObject(ObjectFactory.CreateSolidCube(0.2f, Color4.HotPink)));
-            _renderObjects.Add(new RenderObject(ObjectFactory.CreateSolidCube(0.2f, Color4.BlueViolet)));
-            _renderObjects.Add(new RenderObject(ObjectFactory.CreateSolidCube(0.2f, Color4.Red)));
-            _renderObjects.Add(new RenderObject(ObjectFactory.CreateSolidCube(0.2f, Color4.LimeGreen)));
+            _coloredSolidShader = new ShaderProgram(new Dictionary<ShaderType, string>
+            {
+                {ShaderType.VertexShader, "Components/Shaders/coloredVertex.vert"},
+                {ShaderType.FragmentShader, "Components/Shaders/coloredVertex.frag"}
+            });
             
-            _program = CreateProgram();
-            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line);
+            _texturedSolidShader = new ShaderProgram(new Dictionary<ShaderType, string>
+            {
+                {ShaderType.VertexShader, "Components/Shaders/texturedVertex.vert"},
+                {ShaderType.FragmentShader, "Components/Shaders/texturedVertex.frag"}
+            });
+
+            _renderObjects.Add(new TexturedRenderObject(ObjectFactory.CreateTexturedCube(0.2f, 256f, 256f), _texturedSolidShader, "Components/Textures/dotted2.png"));
+            _renderObjects.Add(new TexturedRenderObject(ObjectFactory.CreateTexturedCube(0.2f, 256f, 256f), _texturedSolidShader, "Components/Textures/wooden.png"));
+            _renderObjects.Add(new ColoredRenderObject(ObjectFactory.CreateSolidCube(0.2f, Color4.HotPink), _coloredSolidShader));
+            _renderObjects.Add(new TexturedRenderObject(ObjectFactory.CreateTexturedCube(0.2f, 256f, 256f), _texturedSolidShader, "Components/Textures/dotted.png"));
+            
+            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill);
             GL.PatchParameter(PatchParameterInt.PatchVertices, 3);
             
             GL.Enable(EnableCap.DepthTest);
@@ -65,7 +78,9 @@ namespace dotnet_opentk_tutorial.Components
                 obj.Dispose();
             }
             
-            GL.DeleteProgram(_program);
+            _coloredSolidShader.Dispose();
+            _texturedSolidShader.Dispose();
+            
             base.Exit();
         }
 
@@ -80,25 +95,23 @@ namespace dotnet_opentk_tutorial.Components
             GL.ClearColor(CLEAR_COLOR);
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-            GL.UseProgram(_program);
-
-            GL.UniformMatrix4(
-                20,             // layout location in shader
-                false,          // Transpose?
-                ref _projection // matrix to send to shader
-            );
-
             var c = 0f;
             foreach (var obj in _renderObjects)
             {
                 obj.Bind();
+                GL.UniformMatrix4(
+                    20,             // layout location in shader
+                    false,          // Transpose?
+                    ref _projection // matrix to send to shader
+                );
+                
                 for (var i = 0; i < 5; i++)
                 {
                     var k = i + (float) (_elapsed * (0.05f + (0.1 * c)));
                     var t = Matrix4.CreateTranslation(
                         (float)(Math.Sin(k * 5f) * (c + 0.5f)),
                         (float)(Math.Cos(k * 5f) * (c + 0.5f)),
-                        -2.7f
+                        -2.7f + (c + 0.1f)
                     );
                     
                     var rX = Matrix4.CreateRotationX(k * 13.0f + i);
@@ -117,7 +130,6 @@ namespace dotnet_opentk_tutorial.Components
                 c += 0.3f;
             }
             
-            GL.PointSize(10);
             SwapBuffers();
         }
 
@@ -131,54 +143,6 @@ namespace dotnet_opentk_tutorial.Components
             }
         }
 
-        private int CompileShader(ShaderType type, string path)
-        {
-            var shader = GL.CreateShader(type);
-            var src = File.ReadAllText(path);
-            
-            GL.ShaderSource(shader, src);
-            GL.CompileShader(shader);
-
-            var info = GL.GetShaderInfoLog(shader);
-            if (!string.IsNullOrEmpty(info))
-            {
-                Console.WriteLine($"GL.CompileShader [{type}] had info log: {info}");
-            }
-
-            return shader;
-        }
-
-        private int CreateProgram()
-        {
-            var program = GL.CreateProgram();
-
-            var shaders = new List<int>
-            {
-                CompileShader(ShaderType.VertexShader, "Components/Shaders/vertexShader.vert"),
-                CompileShader(ShaderType.FragmentShader, "Components/Shaders/fragmentShader.frag")
-            };
-
-            foreach (var s in shaders)
-            {
-                GL.AttachShader(program, s);
-            }
-            
-            GL.LinkProgram(program);
-            var info = GL.GetProgramInfoLog(program);
-            if (!string.IsNullOrEmpty(info))
-            {
-                Console.WriteLine($"GL.LinkProgram had info log: {info}");
-            }
-            
-            foreach (var s in shaders)
-            {
-                GL.DetachShader(program, s);
-                GL.DeleteShader(s);
-            }
-
-            return program;
-        }
-
         private void CreateProjection()
         {
             var aspectRatio = (float)Width/Height;
@@ -186,7 +150,7 @@ namespace dotnet_opentk_tutorial.Components
                 60f*((float) Math.PI/180f), // FOV in radians
                 aspectRatio,                // current window aspect ratio
                 0.1f,                       // near plane
-                256f                        // far plane
+                4000f                        // far plane
             );
         }
     }
