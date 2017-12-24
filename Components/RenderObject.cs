@@ -60,7 +60,6 @@ namespace dotnet_opentk_tutorial.Components
 
         public void Render()
         {
-            GL.BindVertexArray(_vao);
             GL.DrawArrays(PrimitiveType.Triangles, 0, _vertexCount);
         }
 
@@ -78,6 +77,11 @@ namespace dotnet_opentk_tutorial.Components
             GL.DeleteVertexArray(_vao);
             GL.DeleteBuffer(_vbo);
             _initialized = false;
+        }
+
+        public void Bind()
+        {
+            GL.BindVertexArray(_vao);
         }
     }
 }

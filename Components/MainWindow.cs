@@ -14,7 +14,7 @@ namespace dotnet_opentk_tutorial.Components
 
         private readonly string _titleBase;
         private int _program;
-        private Matrix4 _modelView;
+        private Matrix4 _projection;
         private double _elapsed;
         private readonly List<RenderObject> _renderObjects = new List<RenderObject>();
 
@@ -36,15 +36,21 @@ namespace dotnet_opentk_tutorial.Components
         protected override void OnResize(EventArgs e)
         {
             GL.Viewport(0, 0, Width, Height);
+            CreateProjection();
         }
 
         protected override void OnLoad(EventArgs e)
         {
             CursorVisible = true;
-            _program = CompileShaders();
+
+            CreateProjection();
 
             _renderObjects.Add(new RenderObject(ObjectFactory.CreateSolidCube(0.2f, Color4.HotPink)));
+            _renderObjects.Add(new RenderObject(ObjectFactory.CreateSolidCube(0.2f, Color4.BlueViolet)));
+            _renderObjects.Add(new RenderObject(ObjectFactory.CreateSolidCube(0.2f, Color4.Red)));
+            _renderObjects.Add(new RenderObject(ObjectFactory.CreateSolidCube(0.2f, Color4.LimeGreen)));
             
+            _program = CreateProgram();
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line);
             GL.PatchParameter(PatchParameterInt.PatchVertices, 3);
             
@@ -65,40 +71,53 @@ namespace dotnet_opentk_tutorial.Components
 
         protected override void OnUpdateFrame(FrameEventArgs e)
         {
-            _elapsed += e.Time;
-
-            var k = (float) _elapsed * 0.05f;
-            var rX = Matrix4.CreateRotationX(k * 13.0f);
-            var rY = Matrix4.CreateRotationY(k * 13.0f);
-            var rZ = Matrix4.CreateRotationZ(k * 3.0f);
-
-            var t = Matrix4.CreateTranslation(
-                (float) (Math.Sin(k * 5f) * 0.5f),
-                (float) (Math.Cos(k * 5f) * 0.5f),
-                0f
-            );
-            
-            _modelView = rX * rY * rZ * t;
-            
             HandleKeyboard();
         }
 
         protected override void OnRenderFrame(FrameEventArgs e)
         {
+            _elapsed += e.Time;            
             GL.ClearColor(CLEAR_COLOR);
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
             GL.UseProgram(_program);
+
             GL.UniformMatrix4(
-                20,            // layout location in shader
-                false,         // Transpose?
-                ref _modelView // matrix to send to shader
+                20,             // layout location in shader
+                false,          // Transpose?
+                ref _projection // matrix to send to shader
             );
+
+            var c = 0f;
             foreach (var obj in _renderObjects)
             {
-                obj.Render();
+                obj.Bind();
+                for (var i = 0; i < 5; i++)
+                {
+                    var k = i + (float) (_elapsed * (0.05f + (0.1 * c)));
+                    var t = Matrix4.CreateTranslation(
+                        (float)(Math.Sin(k * 5f) * (c + 0.5f)),
+                        (float)(Math.Cos(k * 5f) * (c + 0.5f)),
+                        -2.7f
+                    );
+                    
+                    var rX = Matrix4.CreateRotationX(k * 13.0f + i);
+                    var rY = Matrix4.CreateRotationY(k * 13.0f + i);
+                    var rZ = Matrix4.CreateRotationZ(k * 3.0f + i);
+                    var modelView = rX * rY * rZ * t;
+                
+                    GL.UniformMatrix4(
+                        21,            // layout location in shader
+                        false,         // Transpose?
+                        ref modelView  // matrix to send to shader
+                    );
+                    obj.Render();
+                }
+
+                c += 0.3f;
             }
             
+            GL.PointSize(10);
             SwapBuffers();
         }
 
@@ -129,7 +148,7 @@ namespace dotnet_opentk_tutorial.Components
             return shader;
         }
 
-        private int CompileShaders()
+        private int CreateProgram()
         {
             var program = GL.CreateProgram();
 
@@ -158,6 +177,17 @@ namespace dotnet_opentk_tutorial.Components
             }
 
             return program;
+        }
+
+        private void CreateProjection()
+        {
+            var aspectRatio = (float)Width/Height;
+            _projection = Matrix4.CreatePerspectiveFieldOfView(
+                60f*((float) Math.PI/180f), // FOV in radians
+                aspectRatio,                // current window aspect ratio
+                0.1f,                       // near plane
+                256f                        // far plane
+            );
         }
     }
 }
