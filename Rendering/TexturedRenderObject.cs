@@ -10,6 +10,9 @@ namespace dotnet_opentk_tutorial.Rendering
     public class TexturedRenderObject : AbstractRenderableBase
     {
         private readonly int _textureId;
+
+        private static int MIN_MIPMAPS = 0;
+        private static int MIPMAP_LEVEL = 4;
         
         public TexturedRenderObject(IReadOnlyCollection<TexturedVertex> vertices, ShaderProgram shaderProgram, string texturePath)
             : base(shaderProgram, vertices.Count)
@@ -55,7 +58,7 @@ namespace dotnet_opentk_tutorial.Rendering
             GL.CreateTextures(TextureTarget.Texture2D, 1, out int tid);
             GL.TextureStorage2D(
                 tid,
-                1,
+                MIPMAP_LEVEL,
                 SizedInternalFormat.Rgba32f,
                 w,
                 h
@@ -73,6 +76,16 @@ namespace dotnet_opentk_tutorial.Rendering
                 PixelType.Float,
                 data
             );
+            
+            GL.GenerateTextureMipmap(tid);
+            GL.TextureParameterI(tid, All.TextureBaseLevel, ref MIN_MIPMAPS);
+            GL.TextureParameterI(tid, All.TextureMaxLevel, ref MIPMAP_LEVEL);
+
+            var textureMinFilter = (int)TextureMinFilter.Linear;
+            GL.TextureParameterI(tid, All.TextureMinFilter, ref textureMinFilter);
+
+            var textureMagFilter = (int) TextureMagFilter.Linear;
+            GL.TextureParameterI(tid, All.TextureMagFilter, ref textureMagFilter);
             
             return tid;
         }

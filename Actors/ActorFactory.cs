@@ -26,23 +26,23 @@ namespace dotnet_opentk_tutorial.Actors
             {
                 {
                     WOODEN_ASTEROID,
-                    new TexturedRenderObject(ObjectFactory.CreateTexturedCube(1, 256, 256), texturedSolidShader, "Components/Textures/wooden.png")
+                    new TexturedRenderObject(ObjectFactory.CreateTexturedCube(1, 1, 1), texturedSolidShader, "Components/Textures/wooden.png")
                 },
                 {
                     GOLDEN_ASTEROID,
-                    new TexturedRenderObject(ObjectFactory.CreateTexturedCube(1, 256, 256), texturedSolidShader, "Components/Textures/golden.bmp")
+                    new TexturedRenderObject(ObjectFactory.CreateTexturedCube(1, 1, 1), texturedSolidShader, "Components/Textures/golden.bmp")
                 },
                 {
                     ASTEROID,
-                    new TexturedRenderObject(ObjectFactory.CreateTexturedCube(1, 256, 256), texturedSolidShader, "Components/Textures/asteroid.bmp")
+                    new TexturedRenderObject(ObjectFactory.CreateTexturedCube(1, 1, 1), texturedSolidShader, "Components/Textures/asteroid.bmp")
                 },
                 {
                     SPACECRAFT,
-                    new TexturedRenderObject(ObjectFactory.CreateTexturedCube6(1, 1536, 256), texturedSolidShader, "Components/Textures/spacecraft.png")
+                    new TexturedRenderObject(ObjectFactory.CreateTexturedCube6(1, 1, 1), texturedSolidShader, "Components/Textures/spacecraft.png")
                 },
                 {
                     GAME_OVER,
-                    new TexturedRenderObject(ObjectFactory.CreateTexturedCube6(1, 1536, 256), texturedSolidShader, "Components/Textures/gameover.png")
+                    new TexturedRenderObject(ObjectFactory.CreateTexturedCube6(1, 1, 1), texturedSolidShader, "Components/Textures/gameover.png")
                 },
                 {
                     BULLET,

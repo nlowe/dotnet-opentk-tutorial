@@ -8,5 +8,5 @@ out vec4 color;
 
 void main(void)
 {
-    color = texelFetch(tex,  ivec2(vs_textureCoordinate.x, vs_textureCoordinate.y), 0);
+    color = texture(tex, vs_textureCoordinate);
 }
