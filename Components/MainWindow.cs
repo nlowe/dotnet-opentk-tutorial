@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using dotnet_opentk_tutorial.Rendering;
+using System.Linq;
+using dotnet_opentk_tutorial.Actors;
 using OpenTK;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Graphics;
@@ -10,15 +11,23 @@ namespace dotnet_opentk_tutorial.Components
 {
     public sealed class MainWindow : GameWindow
     {
-        private readonly Color4 CLEAR_COLOR = new Color4(0.1f, 0.1f, 0.3f, 1.0f);
+        private readonly Color4 CLEAR_COLOR = Color4.Black;
 
         private readonly string _titleBase;
         private Matrix4 _projection;
         private double _elapsed;
-        private readonly List<IRenderable> _renderObjects = new List<IRenderable>();
 
+        private readonly List<IActor> _actors = new List<IActor>();
+        private SpacecraftActor _player;
+        
+        private ActorFactory _actorFactory;
         private ShaderProgram _coloredSolidShader;
         private ShaderProgram _texturedSolidShader;
+
+        private KeyboardState _latsKeyboardState;
+        private bool _gameOver = false;
+        private bool _gameOverSpawned = false;
+        private int _score = 0;
 
         public MainWindow() : base(
             1280,
@@ -51,33 +60,36 @@ namespace dotnet_opentk_tutorial.Components
             {
                 {ShaderType.VertexShader, "Components/Shaders/coloredVertex.vert"},
                 {ShaderType.FragmentShader, "Components/Shaders/coloredVertex.frag"}
-            });
+            }, 20, 21);
             
             _texturedSolidShader = new ShaderProgram(new Dictionary<ShaderType, string>
             {
                 {ShaderType.VertexShader, "Components/Shaders/texturedVertex.vert"},
                 {ShaderType.FragmentShader, "Components/Shaders/texturedVertex.frag"}
-            });
+            }, 20, 21);
 
-            _renderObjects.Add(new TexturedRenderObject(ObjectFactory.CreateTexturedCube(0.2f, 256f, 256f), _texturedSolidShader, "Components/Textures/dotted2.png"));
-            _renderObjects.Add(new TexturedRenderObject(ObjectFactory.CreateTexturedCube(0.2f, 256f, 256f), _texturedSolidShader, "Components/Textures/wooden.png"));
-            _renderObjects.Add(new ColoredRenderObject(ObjectFactory.CreateSolidCube(0.2f, Color4.HotPink), _coloredSolidShader));
-            _renderObjects.Add(new TexturedRenderObject(ObjectFactory.CreateTexturedCube(0.2f, 256f, 256f), _texturedSolidShader, "Components/Textures/dotted.png"));
+            _actorFactory = new ActorFactory(_coloredSolidShader, _texturedSolidShader);
+            _player = _actorFactory.CreateSpacecraft();
+            
+            _actors.AddRange(new IActor[]
+            {
+                _player,
+                _actorFactory.CreateAsteroid(),
+                _actorFactory.CreateGoldenAsteroid(),
+                _actorFactory.CreateWoodenAsteroid()
+            });
             
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill);
             GL.PatchParameter(PatchParameterInt.PatchVertices, 3);
             
             GL.Enable(EnableCap.DepthTest);
+            GL.Enable(EnableCap.CullFace);
             Closed += (s, ce) => Exit();
         }
 
         public override void Exit()
         {
-            foreach (var obj in _renderObjects)
-            {
-                obj.Dispose();
-            }
-            
+            _actorFactory.Dispose();
             _coloredSolidShader.Dispose();
             _texturedSolidShader.Dispose();
             
@@ -86,48 +98,94 @@ namespace dotnet_opentk_tutorial.Components
 
         protected override void OnUpdateFrame(FrameEventArgs e)
         {
+            _elapsed += e.Time;            
+
+            var toRemove = new HashSet<IActor>();
+            var view = new Vector4(0, 0, -2.4f, 0);
+
+            var outOfBoundsAsteroids = 0;
+            var removedAsteroids = 0;
+            foreach (var actor in _actors)
+            {
+                actor.Update(_elapsed, e.Time);
+                if ((view - actor.Position).Length > 2)
+                {
+                    toRemove.Add(actor);
+                    if (actor is AsteroidActor)
+                    {
+                        outOfBoundsAsteroids++;
+                    }
+                }
+
+                if (!(actor is ICollidable c)) continue;
+                var collisions = c.CollidesWith(_actors).ToList();
+
+                if (!collisions.Any()) continue;
+                if (actor == _player)
+                {
+                    foreach (var a in _actors)
+                    {
+                        toRemove.Add(a);
+                    }
+                    
+                    _gameOver = true;
+                }
+                else
+                {
+                    toRemove.Add(actor);
+                    foreach (var asteroid in collisions)
+                    {
+                        if (!toRemove.Add(asteroid) || !(asteroid is AsteroidActor a)) continue;
+                        _score += a.Points;
+                        
+                        Console.WriteLine($"Got one! Your score is now {_score}");
+                        
+                        removedAsteroids++;
+                    }
+                }
+            }
+
+            foreach (var actor in toRemove)
+            {
+                _actors.Remove(actor);
+            }
+
+            if (!_gameOver)
+            {
+                for (var i = 0; i < removedAsteroids; i++)
+                {
+                    _actors.Add(_actorFactory.CreateRandomAsteroid());
+                    _actors.Add(_actorFactory.CreateRandomAsteroid());
+                }
+                
+                for (var i = 0; i < outOfBoundsAsteroids; i++)
+                {
+                    _actors.Add(_actorFactory.CreateRandomAsteroid());
+                }
+            }
+            else if(!_gameOverSpawned)
+            {
+                _actors.Add(_actorFactory.CreateGameOver());
+                _gameOverSpawned = true;
+            }
+            
             HandleKeyboard();
         }
 
         protected override void OnRenderFrame(FrameEventArgs e)
         {
-            _elapsed += e.Time;            
             GL.ClearColor(CLEAR_COLOR);
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-            var c = 0f;
-            foreach (var obj in _renderObjects)
+            foreach (var obj in _actors)
             {
-                obj.Bind();
                 GL.UniformMatrix4(
                     20,             // layout location in shader
                     false,          // Transpose?
                     ref _projection // matrix to send to shader
                 );
                 
-                for (var i = 0; i < 5; i++)
-                {
-                    var k = i + (float) (_elapsed * (0.05f + (0.1 * c)));
-                    var t = Matrix4.CreateTranslation(
-                        (float)(Math.Sin(k * 5f) * (c + 0.5f)),
-                        (float)(Math.Cos(k * 5f) * (c + 0.5f)),
-                        -2.7f + (c + 0.1f)
-                    );
-                    
-                    var rX = Matrix4.CreateRotationX(k * 13.0f + i);
-                    var rY = Matrix4.CreateRotationY(k * 13.0f + i);
-                    var rZ = Matrix4.CreateRotationZ(k * 3.0f + i);
-                    var modelView = rX * rY * rZ * t;
-                
-                    GL.UniformMatrix4(
-                        21,            // layout location in shader
-                        false,         // Transpose?
-                        ref modelView  // matrix to send to shader
-                    );
-                    obj.Render();
-                }
-
-                c += 0.3f;
+                obj.Render();
             }
             
             SwapBuffers();
@@ -141,6 +199,23 @@ namespace dotnet_opentk_tutorial.Components
             {
                 Exit();
             }
+
+            if (keyState.IsKeyDown(Key.A))
+            {
+                _player.MoveLeft = true;
+            }
+
+            if (keyState.IsKeyDown(Key.D))
+            {
+                _player.MoveRight = true;
+            }
+
+            if (!_gameOver && keyState.IsKeyDown(Key.Space) && _latsKeyboardState.IsKeyUp(Key.Space))
+            {
+                _actors.Add(_actorFactory.CreateBullet(_player.Position));
+            }
+
+            _latsKeyboardState = keyState;
         }
 
         private void CreateProjection()

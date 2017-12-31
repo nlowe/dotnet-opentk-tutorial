@@ -9,10 +9,14 @@ namespace dotnet_opentk_tutorial
     public class ShaderProgram : IDisposable
     {
         public readonly int Id;
+        public int ProjectionParameterId { get; }
+        public int ModelViewParameterId { get; }
 
-        public ShaderProgram(Dictionary<ShaderType, string> shaders)
+        public ShaderProgram(Dictionary<ShaderType, string> shaders, int projectionParameterId, int modelViewParameterId)
         {
             Id = GL.CreateProgram();
+            ProjectionParameterId = projectionParameterId;
+            ModelViewParameterId = modelViewParameterId;
 
             var shaderComponentIds = shaders.Select(s =>
             {

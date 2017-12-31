@@ -9,6 +9,9 @@ namespace dotnet_opentk_tutorial.Rendering
         protected readonly int VAO;
         protected readonly int VBO;
         protected readonly int VertexCount;
+        
+        public int ProjectionParameterId => ShaderProgram.ProjectionParameterId;
+        public int ModelViewParameterId => ShaderProgram.ModelViewParameterId;
 
         protected AbstractRenderableBase(ShaderProgram shaderProgram, int vertexCount)
         {
